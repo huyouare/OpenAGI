@@ -35,7 +35,7 @@ class VectorStore:
     def cosine_similarity(self, a: np.array, b: np.array) -> float:
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
-    def query(self, query_string: str, top_k: int) -> list[VectorStoreItem]:
+    def query(self, query_string: str, top_k: int) -> list[str]:
         """ Query the vector store using a query string. """
         raw_embedding = self.model.get_embedding(query_string)
         query_embedding = np.array(raw_embedding)
@@ -52,10 +52,13 @@ class VectorStore:
         if len(self.items) < top_k:
             top_k = len(self.items)
         top_k_indices = reversed(similarities.argsort()[-top_k:])
-        top_k_items = [self.items[i] for i in top_k_indices]
+        top_k_items = [self.items[i].value for i in top_k_indices]
         return top_k_items
 
 
 if __name__ == "__main__":
     vector_store = VectorStore()
-    vector_store.add("hello world")
+    vector_store.add("banana")
+    vector_store.add("apple")
+    vector_store.add("shoe")
+    print(vector_store.query("grapes", 2))
