@@ -3,7 +3,7 @@ tools/browse.py
 
 This file contains the web browsing tool used by the agent.
 
-The search tool scrapes the web page and returns the summarized content.
+The search tool scrapes the web page and returns the content.
 """
 
 from bs4 import BeautifulSoup
@@ -11,6 +11,7 @@ import json
 import os
 import re
 import requests
+from core.tool import BaseTool, InputSpec, OutputSpec
 
 
 def get_text_from_page(url):
@@ -73,9 +74,33 @@ def process_article(url, title, dir_name='data'):
     with open(f'{dir_name}/{filename}.json', 'w') as f:
         f.write(json_str)
 
-    return data
+    return data['body']
+
+
+class BrowseTool(BaseTool):
+    def description(self) -> str:
+        return "Scrapes the web page and returns the content."
+
+    def input_spec(self) -> list[InputSpec]:
+        return [
+            InputSpec("url", "The URL of the web page", "string"),
+            InputSpec("title", "The title of the web page", "string")
+        ]
+
+    def output_spec(self) -> list[OutputSpec]:
+        return [
+            OutputSpec("body", "The body of the web page", "string")
+        ]
+
+    def run(self, url: str, title: str):
+        return {
+            "body": process_article(url, title)
+        }
 
 
 if __name__ == '__main__':
-    process_article(
-        "https://en.wikipedia.org/wiki/Barack_Obama", "Barack Obama")
+    tool = BrowseTool()
+    print(tool.run(
+        "https://en.wikipedia.org/wiki/Python_(programming_language)",
+        "Python (programming language)"
+    ))

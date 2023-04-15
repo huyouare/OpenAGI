@@ -2,16 +2,20 @@
 tools/search.py
 
 This file contains the summarization tool used by the agent.
+
+TODO: break down the recursive summarization into a chain.
+TODO: make this generic beyond just webpage content.
 """
 
 
 import json
+import openai
 from tenacity import (
     retry,
     stop_after_attempt,
     wait_random_exponential,
-)  # for exponential backoff
-import openai
+)
+from core.tool import BaseTool, InputSpec, OutputSpec
 
 summarize_prompt = """
 You are an expert summarizer. Your goal is to summarize the user's content as truthfully and concisely as possible.
@@ -128,6 +132,31 @@ def get_summary_recursive(title, url, text):
         return get_summary_recursive(title, url, all_summaries)
 
 
+class SummarizeTool(BaseTool):
+    def __init__(self):
+        pass
+
+    def description(self) -> str:
+        return "Summarizes the contents of a webpage."
+
+    def input_spec(self) -> list[InputSpec]:
+        return [
+            InputSpec("title", "The title of the webpage", "string"),
+            InputSpec("url", "The URL of the webpage", "string"),
+            InputSpec("text", "The raw text of the webpage", "string"),
+        ]
+
+    def output_spec(self) -> list[OutputSpec]:
+        return [
+            OutputSpec("summary", "The summary of the webpage", "string"),
+        ]
+
+    def run(self, title: str, url: str, text: str):
+        return {
+            "summary": get_summary_recursive(title, url, text)
+        }
+
+
 if __name__ == "__main__":
     # Read file from data/barack_obama.json
     with open("data/barack_obama.json", "r") as f:
@@ -135,6 +164,6 @@ if __name__ == "__main__":
         title = data["title"]
         url = data["url"]
         text = data["body"]
-        # Get the summary
-        summary = get_summary_recursive(title, url, text)
-        print(summary)
+
+    tool = SummarizeTool()
+    print(tool.run(title, url, text))
