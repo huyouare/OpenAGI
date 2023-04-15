@@ -1,0 +1,81 @@
+"""
+tools/browse.py
+
+This file contains the web browsing tool used by the agent.
+
+The search tool scrapes the web page and returns the summarized content.
+"""
+
+from bs4 import BeautifulSoup
+import json
+import os
+import re
+import requests
+
+
+def get_text_from_page(url):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36"}
+
+    # Make a HTTP request to the webpage
+    try:
+        response = requests.get(url, headers=headers)
+    except:
+        return ""
+
+    # Parse the HTML content using BeautifulSoup
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    # Remove all script tags and their contents
+    for script in soup(["script"]):
+        script.decompose()
+
+    # Remove extraneous whitespace from the HTML content
+    text = soup.get_text().strip()
+
+    # Clean up the text by removing unnecessary characters and HTML tags
+    # Remove multiple spaces and newlines using regular expressions
+    text = re.sub('\n+', '\n', text)
+    text = re.sub(' +', ' ', text)
+    text = re.sub(r'\[[^\]]+\]', '', text)
+    text = re.sub(r'<[^>]+>', '', text)
+
+    return text
+
+
+def create_filename(title):
+    # Remove non-alphanumeric characters from the title
+    title = re.sub('[^0-9a-zA-Z ]+', '', title)
+    # Replace spaces with underscores
+    title = title.replace(' ', '_')
+    # Convert to lowercase
+    filename = title.lower()
+    return filename
+
+
+def process_article(url, title, dir_name='data'):
+    # Create directory if not already exists
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+
+    text = get_text_from_page(url)
+
+    # Create a dictionary representing the JSON object
+    data = {
+        'title': title,
+        'url': url,
+        'body': text,
+    }
+    # Serialize the dictionary to a JSON string
+    json_str = json.dumps(data, indent=4)
+    # Save the JSON string to a file
+    filename = create_filename(title)
+    with open(f'{dir_name}/{filename}.json', 'w') as f:
+        f.write(json_str)
+
+    return data
+
+
+if __name__ == '__main__':
+    process_article(
+        "https://en.wikipedia.org/wiki/Barack_Obama", "Barack Obama")
