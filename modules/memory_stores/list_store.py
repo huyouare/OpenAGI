@@ -1,5 +1,5 @@
 """
-memory_stores/list_memory.py
+memory_stores/list_store.py
 
 Stores memories as a list.
 """

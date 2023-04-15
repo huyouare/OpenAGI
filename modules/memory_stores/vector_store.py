@@ -1,7 +1,7 @@
 """
-memory_stores/list_memory.py
+memory_stores/vector_store.py
 
-Stores memories as a vector store.
+Stores items within a vector store.
 """
 
 import numpy as np
