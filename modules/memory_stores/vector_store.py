@@ -26,16 +26,23 @@ class VectorStore:
     TODO: support removal and use an ordered dict
     """
 
-    def __init__(self):
+    def __init__(self, use_real_time = False):
         self.items: list[VectorStoreItem] = []
         self.model = EmbeddingModel()
+        # Real time is useful for things like simulations, but isn't as useful for
+        # things like agents, where time doesn't have as much meaning.
+        # Instead of real time, we can just use a counter.
+        self.use_real_time = False
+        self.time_counter = 0 # Only used when not using real time.
 
     def add(self, value: str) -> None:
         """ Adds a value to the vector store. """
         # Create embedding of the value using OpenAI
         embedding = self.model.get_embedding(value)
-        item = VectorStoreItem(np.array(embedding), value)
+        item = VectorStoreItem(np.array(embedding), value, datetime.datetime.now().timestamp() if self.use_real_time else self.time_counter)
         self.items.append(item)
+        if not self.use_real_time:
+            self.time_counter += 1
 
     def cosine_similarity(self, a: np.array, b: np.array) -> float:
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
@@ -65,10 +72,12 @@ class VectorStore:
         top_k_items = [self.items[i].value for i in top_k_indices]
         return top_k_items
     
-    def query(self, query_string: str, top_k: int, current_time: float) -> List[str]:
+    def query(self, query_string: str, top_k: int) -> List[str]:
         """Returns the top k scored entries from the vector store."""
         raw_embedding = self.model.get_embedding(query_string)
         query_embedding = np.array(raw_embedding)
+
+        current_time = datetime.datetime.now().timestamp if self.use_real_time else self.time_counter
     
         # Calculate the raw scores for each item.
         scores = []
