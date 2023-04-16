@@ -4,15 +4,20 @@ memory_stores/vector_store.py
 Stores items within a vector store.
 """
 
+import datetime
 import numpy as np
+import math
 from models.embedding import EmbeddingModel
 from numpy.linalg import norm
 
+from typing import List
+
 
 class VectorStoreItem:
-    def __init__(self, embedding: np.array, value: str):
+    def __init__(self, embedding: np.array, value: str, timestamp: float = None):
         self.embedding: np.array = embedding
         self.value: str = value
+        self.timestamp: float = datetime.datetime.now().timestamp() if timestamp is None else timestamp
 
 
 class VectorStore:
@@ -34,9 +39,14 @@ class VectorStore:
 
     def cosine_similarity(self, a: np.array, b: np.array) -> float:
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+    
+    def query_recent(self, top_k: int) -> List[str]:
+        """Returns the top k most recent entries from the vector store."""
+        top_vector_items = sorted(self.items, key=lambda item: item.timestamp, reverse=True)[:top_k]
+        return [item.value for item in top_vector_items]
 
-    def query(self, query_string: str, top_k: int) -> list[str]:
-        """ Query the vector store using a query string. """
+    def query_relevance(self, query_string: str, top_k: int) -> List[str]:
+        """Returns the top k most relevant entries from the vector store."""
         raw_embedding = self.model.get_embedding(query_string)
         query_embedding = np.array(raw_embedding)
 
@@ -54,6 +64,35 @@ class VectorStore:
         top_k_indices = reversed(similarities.argsort()[-top_k:])
         top_k_items = [self.items[i].value for i in top_k_indices]
         return top_k_items
+    
+    def query(self, query_string: str, top_k: int, current_time: float) -> List[str]:
+        """Returns the top k scored entries from the vector store."""
+        raw_embedding = self.model.get_embedding(query_string)
+        query_embedding = np.array(raw_embedding)
+    
+        # Calculate the raw scores for each item.
+        scores = []
+        for item in self.items:
+            relevance = self.cosine_similarity(query_embedding, item.embedding)
+            recency = math.exp(-1 * (current_time - item.timestamp) * (1 - 0.99)) # Decay rate of 0.99
+            scores.append((relevance, recency))
+        
+        # Normalize the scores.
+        min_relevance = min(scores, key=lambda x: x[0])[0]
+        max_relevance = max(scores, key=lambda x: x[0])[0]
+        min_recency = min(scores, key=lambda x: x[1])[1]
+        max_recency = max(scores, key=lambda x: x[1])[1]
+        normalized_scores = [
+            (
+                (relevance - min_relevance) / (max_relevance - min_relevance),
+                (recency - min_recency) / (max_recency - min_recency),
+            )
+            for relevance, recency in scores
+        ]
+        combined_scores = [relevance + recency for relevance, recency in normalized_scores]
+        scored_items = zip(combined_scores, self.items)
+        return [item.value for _, item in sorted(scored_items, key=lambda tuple: tuple[0], reverse=True)[:top_k]]
+
 
 
 if __name__ == "__main__":
