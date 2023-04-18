@@ -24,3 +24,8 @@ python3 main.py
 | Datetime | Get the current date and time | Custom |
 | Location | Get the user's location | Custom |
 | Summarize | Summarize a string or document | Custom |
+
+## TODOs
+[] Integrate LangChain
+[] Integrate LlamaIndex (GPT Index)
+[] Implement everything from the generative agents paper
