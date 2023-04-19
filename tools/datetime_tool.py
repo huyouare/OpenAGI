@@ -34,6 +34,9 @@ class DatetimeTool(BaseTool):
             OutputSpec("time", "The current time", "string")
         ]
 
+    def parse_input(self, input_str: str):
+        return
+
     def run(self):
         return {
             "datetime": get_datetime(),

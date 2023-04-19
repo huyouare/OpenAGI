@@ -24,6 +24,9 @@ class UserProvidedLocation(BaseTool):
         return [
             OutputSpec("location", "The user's location", "string"),
         ]
+    
+    def parse_input(self, input_str: str):
+        return
 
     def run(self):
         if self.user_provided_location is None:
@@ -55,6 +58,9 @@ class IPGeoLocation(BaseTool):
         return [
             OutputSpec("geo_info", "The user's geo information", "dict")
         ]
+    
+    def parse_input(self, input_str: str):
+        return
 
     def run(self):
         self.get_geo_from_ip()
