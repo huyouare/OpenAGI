@@ -64,13 +64,13 @@ class SearchTool(BaseTool):
             "api_key": self.api_key
         })
         results = search.get_dict()
-        results = results['organic_results']
+        results = results['organic_results'] if 'organic_results' in results else []
         search_results = []
         for result in results:
             search_result = SearchResult(
                 position=result['position'],
                 title=result['title'],
-                snippet=result['snippet'],
+                snippet=result['snippet'] if 'snippet' in result else "",
                 url=result['link']
             )
             search_results.append(search_result)

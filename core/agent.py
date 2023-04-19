@@ -7,7 +7,7 @@ This file contains the agent implementation.
 import json
 from models import llm
 from textwrap import dedent
-from tools import browse, datetime_tool, location, search, summarize
+from tools import browse, datetime_tool, location, search, summarize, user_input
 
 
 class AgentState:
@@ -36,11 +36,12 @@ class Agent:
         # Initialize all known tools
         self.tools = [
             browse.BrowseTool(),
-            # datetime_tool.DatetimeTool(),
+            datetime_tool.DatetimeTool(),
             # location.IPGeoLocation(),
-            # location.UserProvidedLocation(),
+            location.UserProvidedLocation(),
             search.SearchTool(),
             # summarize.SummarizeTool(),
+            user_input.UserInput(),
         ]
 
         tool_strings = [str(tool) for tool in self.tools]
@@ -83,7 +84,8 @@ You should minimize the number of steps you take and tools used, while maximizin
 If provided, the output from the tool used is provided below:
 {tool_output}
 
-Now, continue working on your plan. Output the next action in the following JSON format:
+Now, continue working towards the objective.
+Output the next action in the following JSON format:
 
 ```
 {{
@@ -98,15 +100,15 @@ If the task is complete, output the following JSON:
     "action": "complete",
     "output": "The final result for the user"
 }}
-    ```
+```
             """
             )
             print(prompt)
             response = self.model.generate_chat_completion_stateful(prompt)
             print(response)
 
-            # Parse the text response as JSON, using double quotes
-            output = json.loads(response.replace("'", '"'))
+            # Parse the text response as JSON, 
+            output = json.loads(response)
             if "action" not in output:
                 # TODO: handle error
                 print("Error: no action specified")
