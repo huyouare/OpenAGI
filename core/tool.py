@@ -42,6 +42,11 @@ class BaseTool(ABC):
         pass
 
     @abstractmethod
+    def parse_input(self, input_str: str):
+        """Parse the JSON input to the tool and set the tool's input variables."""
+        pass
+
+    @abstractmethod
     def run(self):
         pass
 

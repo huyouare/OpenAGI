@@ -78,6 +78,11 @@ def process_article(url, title, dir_name='data'):
 
 
 class BrowseTool(BaseTool):
+    def __init__(self):
+        # Set by parse_input
+        self.url = None
+        self.title = None
+
     def description(self) -> str:
         return "Scrapes the web page and returns the content."
 
@@ -92,15 +97,26 @@ class BrowseTool(BaseTool):
             OutputSpec("body", "The body of the web page", "string")
         ]
 
-    def run(self, url: str, title: str):
+    def parse_input(self, input_str: str):
+        # Validate input and throw error if not found
+        if "url" not in input_str:
+            raise ValueError("Missing url in input")
+        if "title" not in input_str:
+            raise ValueError("Missing title in input")
+
+        self.url = input_str["url"]
+        self.title = input_str["title"]
+
+    def run(self):
         return {
-            "body": process_article(url, title)
+            "body": process_article(self.url, self.title)
         }
 
 
 if __name__ == '__main__':
     tool = BrowseTool()
-    print(tool.run(
-        "https://en.wikipedia.org/wiki/Python_(programming_language)",
-        "Python (programming language)"
-    ))
+    tool.parse_input({
+        "url": "https://www.nytimes.com/2021/01/06/us/politics/trump-impeachment.html",
+        "title": "Trump Impeached for Second Time, Conviction in Senate Now Unlikely"
+    })
+    print(tool.run())

@@ -22,6 +22,10 @@ class SearchTool(BaseTool):
     def __init__(self):
         self.api_key = os.environ["SERP_API_KEY"]
         self.base_url = SERP_API_BASE_URL
+        
+        # Variables set by parse_input
+        self.query = None
+        self.num_results = None
 
     def description(self) -> str:
         return "Searches the web for a query and returns the results."
@@ -36,10 +40,20 @@ class SearchTool(BaseTool):
         return [
             OutputSpec("search_results", "The search results", "list")
         ]
+    
+    def parse_input(self, input_str: dict):
+        # Validate input and throw error if not found
+        if "query" not in input_str:
+            raise ValueError("Missing query in input")
+        if "num_results" not in input_str:
+            raise ValueError("Missing num_results in input")
 
-    def run(self, query: str, num_results: int):
+        self.query = input_str["query"]
+        self.num_results = input_str["num_results"]
+
+    def run(self):
         return {
-            "search_results": self.search_query(query, num_results)
+            "search_results": self.search_query(self.query, self.num_results)
         }
 
     def search_query(self, query, num_results=10):
@@ -65,4 +79,8 @@ class SearchTool(BaseTool):
 
 if __name__ == "__main__":
     tool = SearchTool()
-    print(tool.run("python", 10))
+    tool.parse_input({
+        "query": "python",
+        "num_results": 10
+    })
+    print(tool.run())
