@@ -74,7 +74,8 @@ def process_article(url, title, dir_name='data'):
     with open(f'{dir_name}/{filename}.json', 'w') as f:
         f.write(json_str)
 
-    return data['body']
+    # For now, simply truncate the page up to 4000 characters.
+    return data['body'][:4000]
 
 
 class BrowseTool(BaseTool):
