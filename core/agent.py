@@ -7,7 +7,7 @@ This file contains the agent implementation.
 import json
 from models import llm
 from textwrap import dedent
-from tools import browse, datetime_tool, location, search, summarize, user_input
+from tools import browse, code, datetime_tool, location, search, summarize, terminal, user_input
 
 
 class AgentState:
@@ -36,11 +36,13 @@ class Agent:
         # Initialize all known tools
         self.tools = [
             browse.BrowseTool(),
+            code.PythonRunner(),
             datetime_tool.DatetimeTool(),
             # location.IPGeoLocation(),
             location.UserProvidedLocation(),
             search.SearchTool(),
             # summarize.SummarizeTool(),
+            terminal.Terminal(),
             user_input.UserInput(),
         ]
 
@@ -63,6 +65,10 @@ For each task, you may use choose to use a tool or none at all.
 If you can achieve a task without a tool, you should do so.
 You may use a tool multiple times. The tools are:
 {self.tool_prompt}
+
+If you (an LLM) can do a task yourself, then you do not need to use a tool.
+If there is a task you cannot currently do, then you should try to generate and execute code via Terminal.
+If that doesn't work, then you can prompt the user for help via UserInput.
 
 You should minimize the number of steps you take and tools used, while maximizing the quality of the results.
         """
