@@ -5,11 +5,13 @@ This file is used for testing the agent.
 
 """
 
-from core.react_agent import *
+from core.experimental_agent import *
 
 
 def main():
-    query("Which costs more, a ferrari or lamborghini?")
+    agent = Agent()
+    agent.initialize()
+    agent.run()
 
 if __name__ == "__main__":
     main()

@@ -11,6 +11,7 @@ from models.embedding import EmbeddingModel
 from models.llm import LLM
 from numpy.linalg import norm
 from textwrap import dedent
+from functools import partial
 
 from typing import List
 
@@ -31,17 +32,11 @@ class VectorStore:
     TODO: support removal and use an ordered dict
     """
 
-    DEFAULT_IMPORTANCE_PROMPT = dedent(
-        """
-    On a scale of 1 to 10, where 1 is purely mundane (e.g., brushing teeth, making bed)
-    and 10 is extremely poignant (e.g., a break up, college acceptance), rate the likely poignancy of the following piece of memory.
-    Use the following format: FORMAT: <rating>
-    """
-    )
-
-    def __init__(
-        self, importance_prompt=DEFAULT_IMPORTANCE_PROMPT, use_real_time=False
-    ):
+    def __init__(self, importance_prompt: str, objective: str, use_real_time=False):
+        SYSTEM_PROMPT = dedent(
+                """
+                You rate the importance of various things using the format: FORMAT: <rating>
+                """)
         self.items: list[VectorStoreItem] = []
         self.model = EmbeddingModel()
         # Real time is useful for things like simulations, but isn't as useful for
@@ -49,15 +44,18 @@ class VectorStore:
         # Instead of real time, we can just use a counter.
         self.use_real_time = use_real_time
         self.time_counter = 0  # Only used when not using real time.
-        self.llm = LLM(system_prompt=importance_prompt.strip())
+        self.llm = LLM(system_prompt=SYSTEM_PROMPT.strip())
+        def format_importance_prompt(objective: str, memory_str: str) -> str:
+            return importance_prompt.format(objective, memory_str)
+        self.importance_prompt = partial(format_importance_prompt, objective)
 
     def add(self, value: str) -> None:
         """Adds a value to the vector store."""
         # Create embedding of the value using OpenAI
         embedding = self.model.get_embedding(value)
-        importance_str = (
-            self.llm.generate_chat_completion(value).split("FORMAT:")[1].strip()
-        )
+        generated_importance_str = self.llm.generate_chat_completion(self.importance_prompt(value))
+        print("Generated importance str: ", generated_importance_str)
+        importance_str = generated_importance_str.split("FORMAT:")[1].strip()
         importance = int(importance_str)
         item = VectorStoreItem(
             np.array(embedding),
@@ -128,9 +126,9 @@ class VectorStore:
         max_importance = max(scores, key=lambda x: x[2])[2]
         normalized_scores = [
             (
-                (relevance - min_relevance) / (max_relevance - min_relevance),
-                (recency - min_recency) / (max_recency - min_recency),
-                (importance - min_importance) / (max_importance - min_importance),
+                (relevance - min_relevance) / (max_relevance - min_relevance) if max_relevance != min_relevance else 0.5,
+                (recency - min_recency) / (max_recency - min_recency) if max_recency != min_recency else 0.5,
+                (importance - min_importance) / (max_importance - min_importance) if max_importance != min_importance else 0.5,
             )
             for relevance, recency, importance in scores
         ]
@@ -145,6 +143,10 @@ class VectorStore:
                 scored_items, key=lambda tuple: tuple[0], reverse=True
             )[:top_k]
         ]
+    
+    def empty(self) -> bool:
+        """Returns true if the vector store is empty."""
+        return len(self.items) == 0
 
 
 if __name__ == "__main__":

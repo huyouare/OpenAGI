@@ -8,6 +8,7 @@ This file defines the class to call an LLM from OpenAI.
 import openai
 import os
 from models.prompts import SYSTEM_PROMPT
+import tiktoken
 
 # Set api key from env vars
 openai.api_key = os.environ["OPENAI_API_KEY"]
