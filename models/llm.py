@@ -17,7 +17,7 @@ openai.api_key = os.environ["OPENAI_API_KEY"]
 class LLM:
     def __init__(self,
                  model="gpt-3.5-turbo",
-                 temperature=0.7,
+                 temperature=0.0,
                  max_tokens=200,
                  system_prompt=SYSTEM_PROMPT):
         self.model = model
