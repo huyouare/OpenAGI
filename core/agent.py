@@ -24,7 +24,7 @@ class Agent:
         self.search = None
         self.state = AgentState.NOT_STARTED
         self.objective = ""
-        self.model = llm.LLM(model="gpt-4", max_tokens=1000)
+        self.model = llm.LLM(model="gpt-4", max_tokens=1000, temperature=0.0)
         self.tools = []
         self.tool_prompt = ""
         self.initial_plan = ""
@@ -36,7 +36,7 @@ class Agent:
         # Initialize all known tools
         self.tools = [
             browse.BrowseTool(),
-            code.PythonRunner(),
+            # code.PythonRunner(),
             datetime_tool.DatetimeTool(),
             # location.IPGeoLocation(),
             location.UserProvidedLocation(),
