@@ -17,7 +17,7 @@ openai.api_key = os.environ["OPENAI_API_KEY"]
 class LLM:
     def __init__(self,
                  model="gpt-3.5-turbo",
-                 temperature=0.7,
+                 temperature=0.0,
                  max_tokens=200,
                  system_prompt=SYSTEM_PROMPT):
         self.model = model
@@ -26,11 +26,12 @@ class LLM:
         self.system_prompt = system_prompt
         self.messages = [{"role": "system", "content": self.system_prompt}]
 
-    def generate_chat_completion(self, prompt):
+    def generate_chat_completion(self, prompt, messages=[]):
         response = openai.ChatCompletion.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": self.system_prompt},
+                *messages,
                 {"role": "user", "content": prompt},
             ],
             temperature=self.temperature,

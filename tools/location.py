@@ -24,7 +24,7 @@ class UserProvidedLocation(BaseTool):
         return [
             OutputSpec("location", "The user's location", "string"),
         ]
-    
+
     def parse_input(self, input_str: str):
         return
 

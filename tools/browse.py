@@ -14,13 +14,16 @@ import requests
 from core.tool import BaseTool, InputSpec, OutputSpec
 
 
+REQUESTS_TIMEOUT_SECS = 1
+
+
 def get_text_from_page(url):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36"}
 
     # Make a HTTP request to the webpage
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=REQUESTS_TIMEOUT_SECS)
     except:
         return ""
 
@@ -117,7 +120,7 @@ class BrowseTool(BaseTool):
 if __name__ == '__main__':
     tool = BrowseTool()
     tool.parse_input({
-        "url": "https://www.nytimes.com/2021/01/06/us/politics/trump-impeachment.html",
+        "url": "https://www.corporate.ford.com/about/leadership.html",
         "title": "Trump Impeached for Second Time, Conviction in Senate Now Unlikely"
     })
     print(tool.run())
