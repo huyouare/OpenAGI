@@ -130,3 +130,6 @@ dmypy.json
 
 # Data directory
 data/
+
+# Node modules
+node_modules/

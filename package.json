@@ -4,6 +4,7 @@
     "create-react-app": "^5.0.1",
     "express": "^4.18.2",
     "react-flow-renderer": "^10.3.17",
+    "websocket": "^1.0.34",
     "ws": "^8.13.0"
   }
 }

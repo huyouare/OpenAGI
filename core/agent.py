@@ -8,6 +8,7 @@ import json
 from models import llm
 from textwrap import dedent
 from tools import browse, code, datetime_tool, email, location, phone_call, search, summarize, terminal, user_input
+from dataviz.visualizer.visualizer import Visualizer
 
 
 class AgentState:
@@ -25,6 +26,7 @@ class Agent:
         self.state = AgentState.NOT_STARTED
         self.objective = ""
         self.model = llm.LLM(model="gpt-4", max_tokens=1000, temperature=0.0)
+        self.visualizer = Visualizer("/tmp/openagi_data.json")
         self.tools = []
         self.tool_prompt = ""
         self.initial_plan = ""
@@ -36,7 +38,7 @@ class Agent:
         self.state = AgentState.INITIALIZING
         # Initialize all known tools
         self.tools = [
-            # browse.BrowseTool(),
+            browse.BrowseTool(),
             # code.PythonRunner(),
             datetime_tool.DatetimeTool(),
             email.SendEmail(),
@@ -53,11 +55,15 @@ class Agent:
         self.tool_prompt = "\n".join(tool_strings)
 
         # Ask the user for what the agent objective is
-        self.objective = input("What is my objective?\n")
+        self.objective = input("""\033[1m
+Hi, my name is DAN. I am a general agent that can Do Anything Now.
+What can I do for you today?\n\n\033[0m> """)
+                               
+        self.visualizer.add_new_stage(title="Objective", content=self.objective)
 
         # Generate a chat completion
         prompt = dedent(
-            f"""
+            f"""\033[95m
 You are an intelligent agent that is given the following objective:
 {self.objective}
 
@@ -73,12 +79,14 @@ If there is a task you cannot currently do, you can prompt the user for help via
 
 You should minimize the number of steps you take and tools used, while maximizing the quality of the results.
 
-Now, generate completion criteria and a plan to achieve the objective.
-"""
+Now, generate a plan to achieve the objective.
+\033[0m"""
         )
         print(prompt)
+        viz_id =  self.visualizer.add_new_stage(title="Planning", content="Thinking...")
         response = self.model.generate_chat_completion(prompt)
-        print(response)
+        print("\033[94m" + response)
+        self.visualizer.amend_stage(stage_id=viz_id, content=response)
         self.messages.append({"role": "user", "content": prompt})
         self.messages.append({"role": "assistant", "content": response})
         self.initial_plan = self.current_plan = response
@@ -90,7 +98,7 @@ Now, generate completion criteria and a plan to achieve the objective.
         while self.state == AgentState.RUNNING:
             # Generate a chat completion
             prompt = dedent(
-                f"""
+                f"""\033[95m
 If provided, the output (or error) from the tool used is provided below:
 {tool_output}
 
@@ -114,9 +122,11 @@ Do NOT include any other text in your ACTION.
 
 REFLECT:"""
             )
-            print(prompt)
+            print(prompt + "\033[0m")
+            viz_id = self.visualizer.add_new_stage(title="Reflection", content="Thinking...")
             response = self.model.generate_chat_completion(prompt, self.messages + self.assistant_messages)
-            print(response)
+            print("\033[94m" + response + "\033[0m")
+            self.visualizer.amend_stage(stage_id=viz_id, content=response.split("ACTION:")[0])
             if len(self.assistant_messages) > 10:
                 self.assistant_messages.pop(0)
                 self.assistant_messages.pop(0)
@@ -125,6 +135,7 @@ REFLECT:"""
 
             # Parse the text response after "ACTION" as JSON.
             action_str = response.split("ACTION:")[1]
+            viz_id = self.visualizer.add_new_stage(title="Action", content=action_str)
             output = json.loads(action_str)
             if "action" not in output:
                 # TODO: handle error
@@ -151,6 +162,8 @@ REFLECT:"""
             except Exception as error:
                 tool_output = str(error)
                 print("Error: " + tool_output)
+
+            viz_id = self.visualizer.add_new_stage(title=output["action"], content=str(tool_output))
 
             if output["action"] == "UserInput":
                 self.assistant_messages.append({"role": "user", "content": str(tool_output)})

@@ -33,5 +33,5 @@ class UserInput(BaseTool):
 
     def run(self):
         return {
-            "user_response": input(self.agent_question + "\n"),
+            "user_response": input("\033[1m" + self.agent_question + "\n\n\033[0m> "),
         }

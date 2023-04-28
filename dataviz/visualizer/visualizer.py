@@ -5,15 +5,19 @@ class Visualizer:
         self.file_path = file_path
         self.nodes = []
         self.edges = []
-        self.current_stage_id = 0
+        self.current_stage_id = -1
 
     def add_new_stage(self, title, content):
         self.current_stage_id += 1
+        # # Replace newlines in content with &#xA; tags
+        # content = content.replace("\n", "&#xA;")
 
         node = {
             "id": str(self.current_stage_id),
             "type": "custom",
-            "position": {"x": 500 * self.current_stage_id, "y": 50},
+            "position": {
+                "x": 400 * (self.current_stage_id % 5),
+                "y": 50 + 500 * (self.current_stage_id // 5)},
             "data": {"title": title, "content": content},
         }
         self.nodes.append(node)
@@ -23,6 +27,8 @@ class Visualizer:
                 "id": f"e{self.current_stage_id - 1}-{self.current_stage_id}",
                 "source": str(self.current_stage_id - 1),
                 "target": str(self.current_stage_id),
+                "animated": True,
+                "markerEnd": {"type": "arrowclosed"},
             }
             self.edges.append(edge)
 
@@ -30,6 +36,10 @@ class Visualizer:
         return self.current_stage_id
 
     def amend_stage(self, stage_id, title=None, content=None):
+        # if content:
+        #     # Replace newlines in content with &#xA; tags
+        #     content = content.replace("\n", "&#xA;")
+
         for node in self.nodes:
             if node['id'] == str(stage_id):
                 if title is not None:
