@@ -1,0 +1,55 @@
+{
+  "nodes": [
+    {
+      "id": "1",
+      "type": "custom",
+      "position": {
+        "x": 250,
+        "y": 50
+      },
+      "data": {
+        "title": "Stage 1",
+        "input": "Input 1",
+        "output": "Output 1"
+      }
+    },
+    {
+      "id": "2",
+      "type": "custom",
+      "position": {
+        "x": 500,
+        "y": 50
+      },
+      "data": {
+        "title": "Updated Stage 2",
+        "input": "New Input 2",
+        "output": "New Output 2"
+      }
+    },
+    {
+      "id": "3",
+      "type": "custom",
+      "position": {
+        "x": 750,
+        "y": 50
+      },
+      "data": {
+        "title": "Stage 3",
+        "input": "Input 3",
+        "output": "Output 3"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1-2",
+      "source": "1",
+      "target": "2"
+    },
+    {
+      "id": "e2-3",
+      "source": "2",
+      "target": "3"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import json
 from models import llm
 from textwrap import dedent
 from modules.memory_stores.vector_store import VectorStore
+from dataviz.visualizer.visualizer import Visualizer
 from tools import browse, code, datetime_tool, location, search, summarize, terminal, user_input
 import tiktoken
 
@@ -28,6 +29,7 @@ class Agent:
         self.objective = ""
         self.primary_model = llm.LLM(model="gpt-4", max_tokens=1000)
         self.secondary_model = llm.LLM(model="gpt-3.5-turbo", max_tokens=500)
+        self.visualizer = Visualizer("/tmp/openagi_data.json")
         self.tools = []
         self.tool_prompt = ""
         self.initial_plan = ""
@@ -54,6 +56,7 @@ class Agent:
 
         # Ask the user for what the agent objective is
         self.objective = input("What is my objective?\n")
+        self.visualizer.add_new_stage(title="Objective", content=self.objective)
         self.memory = VectorStore(dedent(
             """
             On a scale of 1 to 10, where 1 is completely useless, and 10 is actually achieving the goal, rate the importance
@@ -108,7 +111,9 @@ You should minimize the number of steps you take and tools used, while maximizin
                 """
             )
             print("Printing planning prompt: ", planning_prompt)
+            viz_id =  self.visualizer.add_new_stage(title="Planning", content="Thinking...")
             planning_response = self.primary_model.generate_chat_completion_stateful(planning_prompt)
+            self.visualizer.amend_stage(stage_id=viz_id, content=planning_response)
             print("Printing planning response: ", planning_response)
 
             # Planning is over. Now start the action phase.
@@ -126,6 +131,7 @@ You may use a tool multiple times. The tools are:
 
 Recall that your objective is {self.objective}.
 Continue working towards your objective.
+DO NOT MAKE UP ACTIONS. YOU CAN ONLY TAKE AN ACTION FROM THE APPROVED LIST.
 Output your next action in the following JSON format:
 
 ```
@@ -145,7 +151,9 @@ If the task is complete, output the following JSON:
             """
             )
             print("Printing action prompt: ", action_prompt)
+            viz_id = self.visualizer.add_new_stage(title="Action", content="Thinking...")
             action_response = self.primary_model.generate_chat_completion(action_prompt)
+            self.visualizer.amend_stage(stage_id=viz_id, content=action_response)
             print("Printing action response: ", action_response)
 
             # Parse the text response as JSON, 
@@ -173,22 +181,11 @@ If the task is complete, output the following JSON:
             tool_output = tool.run()
 
             # Action is over, now entering reflection stage.
-            reflection_prompt = dedent(
-                f"""
-You are an AI agent tasked with solving the following objective: {self.objective}.
-
-As part of your efforts to solve this objective, you recently took the following action: {output["action"]}.
-The input to your action was: {output["input"]}.
-The response output of this action was: {tool_output}.
-
-Summarize the output of this action into a form that can help you achieve your objective in the future.
-We will save your summary and give it to you again in the future.
-You should summarize the actual output itself, not just meta-information about the output. So, if you used the date tool and found the current date was "01-01-2020", you need to include the actual date in your summary.
-The output itself will be discarded, and only your summary will be kept. So, if there is anything you want to remember, put it in your summary.
-                """
-            )
+            reflection_prompt = self.build_reflection_prompt(output["action"], output["input"], tool_output)
             print("Printing reflection prompt: ", reflection_prompt)
+            viz_id = self.visualizer.add_new_stage(title="Reflection", content="Thinking...")
             reflection_response = self.secondary_model.generate_chat_completion(reflection_prompt)
+            self.visualizer.amend_stage(stage_id=viz_id, content=reflection_response)
             print("Printing reflection response: ", reflection_response)
             self.memory.add(reflection_response)
             dummy = input("PAUSE")
@@ -215,7 +212,7 @@ The output itself will be discarded, and only your summary will be kept. So, if 
         base_prompt_tokens = len(encoding.encode(base_prompt))
         tokens_remaining = 4096 - system_prompt_tokens - base_prompt_tokens - self.secondary_model.max_tokens
 
-        output_encoding = encoding.encode(output)
+        output_encoding = encoding.encode(str(output))
         # We have to make sure we don't overflow the context window.
         output_encoding = output_encoding[:tokens_remaining]
         output = encoding.decode(output_encoding)
