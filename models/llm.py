@@ -26,11 +26,12 @@ class LLM:
         self.system_prompt = system_prompt
         self.messages = [{"role": "system", "content": self.system_prompt}]
 
-    def generate_chat_completion(self, prompt):
+    def generate_chat_completion(self, prompt, messages=[]):
         response = openai.ChatCompletion.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": self.system_prompt},
+                *messages,
                 {"role": "user", "content": prompt},
             ],
             temperature=self.temperature,
