@@ -11,6 +11,59 @@ from tools import browse, code, datetime_tool, email, location, phone_call, sear
 from dataviz.visualizer.visualizer import Visualizer
 
 
+USE_FUNCTION_CALLS = True
+
+INTRO_PROMPT = """You are an intelligent agent that is given the following objective:
+{objective}
+
+You also have multiple tools at your disposal.
+For each task, you may use choose to use a tool or none at all.
+If you can achieve a task without a tool, you should do so.
+You may use a tool multiple times. The tools are:
+{tool_prompt}
+
+If you (an LLM) can do a task yourself, then you do not need to use a tool.
+However, do not hallucinate or make up any facts.
+If there is a task you cannot currently do, you can prompt the user for help via UserInput.
+
+You should minimize the number of steps you take and tools used, while maximizing the quality of the results.
+
+Now, generate a plan to achieve the objective."""
+
+ORIG_TOOL_PROMPT = """
+If provided, the output (or error) from the tool used is provided below:
+{tool_output}
+
+Now, continue working towards the objective.
+
+Use the following structure to your response:
+1. REFLECT: Reflect on the previous action and its output.
+2. PLAN: Define the next action, re-planning if necessary.
+3. ACTION: Provide the next action in JSON format. ONLY output JSON.
+
+If the you feel that the task is complete, use the UserInput tool to confirm.
+If you are stuck, ask the UserInput for clarification.
+
+At the end of your response, output the action in the following JSON format.
+Do NOT include any other text in your ACTION.
+
+{{
+    "action": "tool_name",
+    "input": {{ "input_name": "input_value" }}
+}}
+
+REFLECT:"""
+
+FUNC_CALL_PROMPT = """
+If provided, the output (or error) from the tool used is provided below:
+{tool_output}
+
+Now, continue working towards the objective.
+
+If the you feel that the task is complete, use the UserInput tool to confirm.
+If you are stuck, ask the UserInput for clarification.
+"""
+
 class AgentState:
     NOT_STARTED = 0
     INITIALIZING = 1
@@ -25,7 +78,7 @@ class Agent:
         self.search = None
         self.state = AgentState.NOT_STARTED
         self.objective = ""
-        self.model = llm.LLM(model="gpt-4", max_tokens=1000, temperature=0.0)
+        self.model = llm.LLM(model="gpt-3.5-turbo", max_tokens=1000, temperature=0.0)
         self.visualizer = Visualizer("/tmp/openagi_data.json")
         self.tools = []
         self.tool_prompt = ""
@@ -51,7 +104,7 @@ class Agent:
             user_input.UserInput(),
         ]
 
-        tool_strings = [str(tool) for tool in self.tools]
+        tool_strings = [str(tool.json_openai()) for tool in self.tools]
         self.tool_prompt = "\n".join(tool_strings)
 
         # Ask the user for what the agent objective is
@@ -63,26 +116,9 @@ What can I do for you today?\n\n\033[0m> """)
 
         # Generate a chat completion
         prompt = dedent(
-            f"""\033[95m
-You are an intelligent agent that is given the following objective:
-{self.objective}
-
-You also have multiple tools at your disposal.
-For each task, you may use choose to use a tool or none at all.
-If you can achieve a task without a tool, you should do so.
-You may use a tool multiple times. The tools are:
-{self.tool_prompt}
-
-If you (an LLM) can do a task yourself, then you do not need to use a tool.
-However, do not hallucinate or make up any facts.
-If there is a task you cannot currently do, you can prompt the user for help via UserInput.
-
-You should minimize the number of steps you take and tools used, while maximizing the quality of the results.
-
-Now, generate a plan to achieve the objective.
-\033[0m"""
+            INTRO_PROMPT.format(objective=self.objective, tool_prompt=self.tool_prompt)
         )
-        print(prompt)
+        print("\033[95m" + prompt + "\033[0m")
         viz_id =  self.visualizer.add_new_stage(title="Planning", content="Thinking...")
         response = self.model.generate_chat_completion(prompt)
         print("\033[94m" + response)
@@ -98,75 +134,92 @@ Now, generate a plan to achieve the objective.
         while self.state == AgentState.RUNNING:
             # Generate a chat completion
             prompt = dedent(
-                f"""\033[95m
-If provided, the output (or error) from the tool used is provided below:
-{tool_output}
-
-Now, continue working towards the objective.
-
-Use the following structure to your response:
-1. REFLECT: Reflect on the previous action and its output.
-2. PLAN: Define the next action, re-planning if necessary.
-3. ACTION: Provide the next action in JSON format. ONLY output JSON.
-
-If the you feel that the task is complete, use the UserInput tool to confirm.
-If you are stuck, ask the UserInput for clarification.
-
-At the end of your response, output the action in the following JSON format.
-Do NOT include any other text in your ACTION.
-
-{{
-    "action": "tool_name",
-    "input": {{ "input_name": "input_value" }}
-}}
-
-REFLECT:"""
+                FUNC_CALL_PROMPT.format(tool_output=tool_output) if USE_FUNCTION_CALLS else ORIG_TOOL_PROMPT.format(tool_output=tool_output)
             )
-            print(prompt + "\033[0m")
+            print("\033[95m" + prompt + "\033[0m")
             viz_id = self.visualizer.add_new_stage(title="Reflection", content="Thinking...")
-            response = self.model.generate_chat_completion(prompt, self.messages + self.assistant_messages)
-            print("\033[94m" + response + "\033[0m")
-            self.visualizer.amend_stage(stage_id=viz_id, content=response.split("ACTION:")[0])
+
+            if USE_FUNCTION_CALLS:
+                functions = [tool.json_openai() for tool in self.tools]
+                print("Functions:", functions)
+                message = self.model.generate_chat_completion_with_functions(prompt, self.messages + self.assistant_messages, functions)
+                print("Message:", message)
+                print("\033[94m" + str(message.content) + "\033[0m")
+                print("\033[94m" + "Function call: " + str(message.function_call) + "\033[0m")
+                response = None
+                if message.function_call is not None:
+                    response = str(message.function_call)
+                else:
+                    response = str(message.content)
+                
+                # Use the function call to get the tool by name
+                function_name = message["function_call"]["name"]
+                tool = None
+                for t in self.tools:
+                    if type(t).__name__ == function_name:
+                        tool = t
+                        break
+                
+                print("RUNNING TOOL:", tool)
+
+                # Set the tool's input
+                try:
+                    print("INPUTS:", message["function_call"]["arguments"])
+                    tool.parse_input(json.loads(message["function_call"]["arguments"]))
+                    # If no errors, run the tool and capture the output.
+                    tool_output = tool.run()
+                except Exception as error:
+                    tool_output = str(error)
+                    print("Error: " + tool_output)
+
+            else:
+                response = self.model.generate_chat_completion(prompt, self.messages + self.assistant_messages)
+                print("\033[94m" + response + "\033[0m")
+
+                # Parse the text response after "ACTION" as JSON.
+                action_str = response.split("ACTION:")[1]
+                viz_id = self.visualizer.add_new_stage(title="Action", content=action_str)
+                self.visualizer.amend_stage(stage_id=viz_id, content=response.split("ACTION:")[0])
+
+                print("Action str:", action_str)
+
+                output = json.loads(action_str)
+                if "action" not in output:
+                    # TODO: handle error
+                    print("Error: no action specified")
+                if output["action"] == "complete":
+                    self.state = AgentState.STOPPED
+                    print("Task complete!")
+                    print("FINAL RESULT:\n\n" + output["output"])
+                    return
+
+                # Get the tool by name
+                tool = None
+                for t in self.tools:
+                    if type(t).__name__ == output["action"]:
+                        tool = t
+                        break
+                
+                # Set the tool's input
+                try:
+                    tool.parse_input(output["input"])
+                    # If no errors, run the tool and capture the output.
+                    tool_output = tool.run()
+                except Exception as error:
+                    tool_output = str(error)
+                    print("Error: " + tool_output)
+
+                viz_id = self.visualizer.add_new_stage(title=output["action"], content=str(tool_output))
+
             if len(self.assistant_messages) > 10:
                 self.assistant_messages.pop(0)
                 self.assistant_messages.pop(0)
             self.assistant_messages.append({"role": "user", "content": prompt})
             self.assistant_messages.append({"role": "assistant", "content": response})
 
-            # Parse the text response after "ACTION" as JSON.
-            action_str = response.split("ACTION:")[1]
-            viz_id = self.visualizer.add_new_stage(title="Action", content=action_str)
-            output = json.loads(action_str)
-            if "action" not in output:
-                # TODO: handle error
-                print("Error: no action specified")
-            if output["action"] == "complete":
-                self.state = AgentState.STOPPED
-                print("Task complete!")
-                print("FINAL RESULT:\n\n" + output["output"])
-                return
-            
-            # Get the tool by name
-            tool = None
-            for t in self.tools:
-                if type(t).__name__ == output["action"]:
-                    tool = t
-                    break
-            
-            # Set the tool's input
-            try:
-                tool.parse_input(output["input"])
-                
-                # If no errors, run the tool and capture the output.
-                tool_output = tool.run()
-            except Exception as error:
-                tool_output = str(error)
-                print("Error: " + tool_output)
-
-            viz_id = self.visualizer.add_new_stage(title=output["action"], content=str(tool_output))
-
-            if output["action"] == "UserInput":
-                self.assistant_messages.append({"role": "user", "content": str(tool_output)})
+            # TODO: Add the tool input and output to messages
+            # if output["action"] == "UserInput":
+            #     self.assistant_messages.append({"role": "user", "content": str(tool_output)})
             
             # # Fake the tool being run by getting user input
             # tool_output = input("Please enter the output from the tool:\n")

@@ -39,6 +39,21 @@ class LLM:
         )
         return response.choices[0].message.content
 
+    def generate_chat_completion_with_functions(self, prompt, messages=[], functions=[]):
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo-0613",
+            messages=[
+                {"role": "system", "content": self.system_prompt},
+                *messages,
+                {"role": "user", "content": prompt},
+            ],
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            functions=functions,
+            function_call="auto",
+        )
+        return response.choices[0].message
+
     def generate_chat_completion_stateful(self, prompt):
         self.messages.append({"role": "user", "content": prompt})
         response = openai.ChatCompletion.create(

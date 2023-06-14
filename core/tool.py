@@ -51,10 +51,49 @@ class BaseTool(ABC):
         pass
 
     def __str__(self):
-        """ Generate a string representation of the tool in JSON, including class name, descrption, and input/output spec. """
+        """Generate a string representation of the tool in JSON, including class name, descrption, and input/output spec."""
         return str({
             "name": self.__class__.__name__,
             "description": self.description(),
             "input_spec": [vars(input) for input in self.input_spec()],
             "output_spec": [vars(output) for output in self.output_spec()]
         })
+
+    def json_openai(self):
+        """Generate the tool spec in OpenAI function call format."""
+
+        # First, format inputs in the proper format
+        # "parameters": {
+        #     "type": "object",
+        #     "properties": {
+        #         "location": {
+        #             "type": "string",
+        #             "description": "The city and state, e.g. San Francisco, CA",
+        #         },
+        #         "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+        #     },
+        #     "required": ["reasoning", "location"],
+        # },
+        properties = {}
+        required = []
+        for input in self.input_spec():
+            properties[input.name] = {
+                # Cast type 'int' to 'number' for OpenAI
+                "type": "number" if input.type == "int" else input.type,
+                "description": input.description
+            }
+            # All inputs are required
+            required.append(input.name)
+
+        obj = {
+            "name": self.__class__.__name__,
+            "description": self.description(),
+            "parameters": {
+                "type": "object",
+                "properties": properties,
+                "required": required
+            }
+        }
+
+        # Return json
+        return obj
