@@ -28,7 +28,7 @@ class PhoneCall(BaseTool):
     def input_spec(self) -> list[InputSpec]:
         return [
             InputSpec("phone_number", "The phone number to call", "string"),
-            InputSpec("prompt", "The prompt given to the LLM making the phone call", "string"),
+            InputSpec("prompt", "A comprehensive LLM prompt including context given to the LLM agent making the phone cal. The prompt should start with 'You are...'", "string"),
         ]
 
     def output_spec(self) -> list[OutputSpec]:
