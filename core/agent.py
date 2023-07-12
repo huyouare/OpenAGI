@@ -62,6 +62,8 @@ Now, continue working towards the objective.
 
 If the you feel that the task is complete, use the UserInput tool to confirm.
 If you are stuck, ask the UserInput for clarification.
+
+Do NOT return anything other than your function call.
 """
 
 class AgentState:
@@ -144,16 +146,16 @@ What can I do for you today?\n\n\033[0m> """)
                 print("Functions:", functions)
                 message = self.model.generate_chat_completion_with_functions(prompt, self.messages + self.assistant_messages, functions)
                 print("Message:", message)
-                print("\033[94m" + str(message.content) + "\033[0m")
-                print("\033[94m" + "Function call: " + str(message.function_call) + "\033[0m")
                 response = None
-                if message.function_call is not None:
-                    response = str(message.function_call)
+                if "function_call" in message:
+                    print("\033[94m" + "Function call: " + str(message.function_call) + "\033[0m")
+                    response = message.function_call
                 else:
-                    response = str(message.content)
+                    print("\033[94m" + str(message.content) + "\033[0m")
+                    response = json.loads(message.content)
                 
                 # Use the function call to get the tool by name
-                function_name = message["function_call"]["name"]
+                function_name = response["name"]
                 tool = None
                 for t in self.tools:
                     if type(t).__name__ == function_name:
@@ -164,8 +166,8 @@ What can I do for you today?\n\n\033[0m> """)
 
                 # Set the tool's input
                 try:
-                    print("INPUTS:", message["function_call"]["arguments"])
-                    tool.parse_input(json.loads(message["function_call"]["arguments"]))
+                    print("INPUTS:", response["arguments"])
+                    tool.parse_input(json.loads(response["arguments"]))
                     # If no errors, run the tool and capture the output.
                     tool_output = tool.run()
                 except Exception as error:
@@ -215,7 +217,7 @@ What can I do for you today?\n\n\033[0m> """)
                 self.assistant_messages.pop(0)
                 self.assistant_messages.pop(0)
             self.assistant_messages.append({"role": "user", "content": prompt})
-            self.assistant_messages.append({"role": "assistant", "content": response})
+            self.assistant_messages.append({"role": "assistant", "content": str(response)})
 
             # TODO: Add the tool input and output to messages
             # if output["action"] == "UserInput":

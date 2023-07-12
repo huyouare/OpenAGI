@@ -41,7 +41,7 @@ class LLM:
 
     def generate_chat_completion_with_functions(self, prompt, messages=[], functions=[]):
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-0613",
+            model="gpt-4-0613",
             messages=[
                 {"role": "system", "content": self.system_prompt},
                 *messages,
@@ -52,6 +52,9 @@ class LLM:
             functions=functions,
             function_call="auto",
         )
+
+        print("Usage:", response.usage)
+
         return response.choices[0].message
 
     def generate_chat_completion_stateful(self, prompt):
